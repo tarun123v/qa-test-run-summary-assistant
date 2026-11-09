@@ -29,7 +29,7 @@ Activate it:
 .venv\Scripts\Activate.ps1
 ```
 
-When it is active, PowerShell shows `(.venv)` at the start of the prompt. This project uses Python's standard library, so no packages need to be installed.
+When it is active, PowerShell shows `(.venv)` at the start of the prompt. The application code uses Python's standard library, so it needs no runtime packages.
 
 ## Run the program
 
@@ -67,6 +67,15 @@ The pass rate is calculated as `passed / (passed + failed) * 100`; blocked tests
 ## Read-only QA tool
 
 `get_test_run(run_id)` only looks up and returns a copy of a synthetic run. It does not change run status, delete results, or trigger reruns. Because it returns a copy, edits to the returned dictionary or its test-name lists do not change the original records in `qa_data.py`.
+## Running the tests
+
+The tests use `pytest`. Install it in the active virtual environment and run the test suite with:
+
+```powershell
+python -m pip install pytest
+python -m pytest
+```
+
 ## Missing QA run behavior
 
 `get_test_run(run_id)` raises `LookupError` with a message such as `No QA test run found for ID QA-999.` when the ID is valid but no synthetic run matches it. Callers such as `main.py` catch the error and display its message. Invalid input uses `TypeError` for a non-string and `ValueError` for an empty or whitespace-only string.
@@ -82,4 +91,5 @@ To leave the virtual environment when you are done:
 ```powershell
 deactivate
 ```
+
 

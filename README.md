@@ -80,6 +80,18 @@ python -m pytest
 
 `get_test_run(run_id)` raises `LookupError` with a message such as `No QA test run found for ID QA-999.` when the ID is valid but no synthetic run matches it. Callers such as `main.py` catch the error and display its message. Invalid input uses `TypeError` for a non-string and `ValueError` for an empty or whitespace-only string.
 
+## Ollama settings for singleCall.py
+
+`singleCall.py` reads `OLLAMA_MODEL` and `OLLAMA_THINK` from the project's `.env` file. Set the model to an installed Ollama tag such as `qwen3:latest`, and set thinking to `true` or `false`. The script validates both values and uses them in each chat call. The local `.env` file is ignored by Git; `.env.example` is a safe template.
+
+Install the `.env` loader in the project's virtual environment and run the example:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install python-dotenv
+ollama pull qwen3:latest
+.\.venv\Scripts\python.exe singleCall.py
+```
+
 ## HTTP status codes and JSON response
 
 In `api_client.py`, `fetch_post(1)` sends an HTTP request to JSONPlaceholder. The **HTTP status code** tells whether the server handled the request successfully. A code from 200 through 299 means success; for example, 404 means the requested post was not found. The function raises a clear error for an unsuccessful status.
@@ -91,5 +103,6 @@ To leave the virtual environment when you are done:
 ```powershell
 deactivate
 ```
+
 
 

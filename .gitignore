@@ -3,6 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# node_modules
+node_modules/
+# Dependency directories
+jspm_packages/
+package-lock.json
+package.json
+
 # Virtual environments
 .venv/
 venv/

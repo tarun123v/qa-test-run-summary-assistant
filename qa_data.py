@@ -26,4 +26,13 @@ QA_RUNS = [
         "failing_tests": ["test_checkout_total", "test_session_expiry"],
         "blocked_tests": [],
     },
+     {
+            "run_id": "QA-123",
+            "status": "completed",
+            "passed": 17,
+            "failed": 2,
+            "blocked": 1,
+            "failing_tests": ["test_checkout_total", "test_session_expiry"],
+            "blocked_tests": ["test_payment_gateway"],
+        },
 ]

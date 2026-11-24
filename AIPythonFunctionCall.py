@@ -1,10 +1,12 @@
 import json
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
 from ollama import chat
 
+from qa_data import QA_RUNS
 from qa_tools import get_test_run
 
 
@@ -23,12 +25,14 @@ THINK = think_setting == "true"
 
 # These instructions are sent to the model as its system message.
 SYSTEM_PROMPT = (
-    "You are a QA test-run assistant. For any question about a specific test "
-    "run, use the get_test_run tool to retrieve the run's facts. Base your "
-    "answer only on the data returned by that tool. Never guess or invent run "
-    "IDs, statuses, counts, test names, or other run details. If the tool "
-    "cannot find a run, say that it was not found. If the requested detail is "
-    "not present in the returned data, say that the data does not include it."
+    "You are a QA test-run assistant. When a question asks about a specific QA "
+    "test run and the get_test_run tool is available, use it to retrieve the "
+    "run's facts. Base run-specific answers only on the returned data. Never "
+    "guess or invent run IDs, statuses, counts, test names, or other run "
+    "details. If the tool cannot find a run, say that it was not found. If the "
+    "requested detail is not present in the returned data, say that the data "
+    "does not include it. If a question is unrelated to QA test runs, say this "
+    "assistant only supports QA test-run questions."
 )
 
 # Start each conversation with the assistant instructions.
@@ -93,10 +97,30 @@ def parse_and_validate_run_id(raw_arguments: object) -> str:
     return run_id
 
 
+def extract_run_id(text: str) -> str | None:
+    """Return a QA-123-style run ID from the request, if one is present."""
+    match = re.search(r"\bQA-\d+\b", text, flags=re.IGNORECASE)
+    return match.group(0).upper() if match else None
+
+
 # Send a user request and the tool definition to the model.
-user_request = "Summarize QA test run QA-108."
+user_request = "Summarize QA test run QA-104."
+# user_request = "What is the capital of France?"
 messages.append({"role": "user", "content": user_request})
 
+requested_run_id = extract_run_id(user_request)
+if requested_run_id is None:
+    print("This assistant only answers questions about a specific QA test run.")
+    print("Please include a run ID such as QA-104.")
+    raise SystemExit(0)
+
+known_run_ids = {run["run_id"].upper() for run in QA_RUNS}
+if requested_run_id not in known_run_ids:
+    print(f"No QA test run found for ID {requested_run_id} in qa_data.py.")
+    print("The question was not sent to Ollama.")
+    raise SystemExit(0)
+
+print("QA run ID detected; sending the request with the lookup tool.")
 response = chat(
     model=MODEL_NAME,
     messages=messages,
@@ -128,45 +152,52 @@ if response.message.tool_calls:
                     "message": str(error),
                 }
             else:
-                try:
-                    run = available_functions[call.function.name](run_id=run_id)
-                except LookupError:
+                if run_id.upper() != requested_run_id:
                     tool_result = {
                         "ok": False,
-                        "error": "run_not_found",
-                        "message": f"No QA test run found for ID {run_id}.",
-                    }
-                except (TypeError, ValueError):
-                    tool_result = {
-                        "ok": False,
-                        "error": "invalid_run_id",
-                        "message": "The run ID could not be used.",
-                    }
-                except Exception:
-                    tool_result = {
-                        "ok": False,
-                        "error": "lookup_failed",
-                        "message": "The QA test run could not be retrieved.",
+                        "error": "run_id_mismatch",
+                        "message": "The requested run ID did not match the user's question.",
                     }
                 else:
-                    # Only send the fields needed to answer common QA questions.
-                    allowed_fields = (
-                        "run_id",
-                        "status",
-                        "passed",
-                        "failed",
-                        "blocked",
-                        "failing_tests",
-                        "blocked_tests",
-                    )
-                    tool_result = {
-                        "ok": True,
-                        "run": {
-                            field: run[field]
-                            for field in allowed_fields
-                            if field in run
-                        },
-                    }
+                    try:
+                        run = available_functions[call.function.name](run_id=run_id)
+                    except LookupError:
+                        tool_result = {
+                            "ok": False,
+                            "error": "run_not_found",
+                            "message": f"No QA test run found for ID {run_id}.",
+                        }
+                    except (TypeError, ValueError):
+                        tool_result = {
+                            "ok": False,
+                            "error": "invalid_run_id",
+                            "message": "The run ID could not be used.",
+                        }
+                    except Exception:
+                        tool_result = {
+                            "ok": False,
+                            "error": "lookup_failed",
+                            "message": "The QA test run could not be retrieved.",
+                        }
+                    else:
+                        # Only send the fields needed to answer common QA questions.
+                        allowed_fields = (
+                            "run_id",
+                            "status",
+                            "passed",
+                            "failed",
+                            "blocked",
+                            "failing_tests",
+                            "blocked_tests",
+                        )
+                        tool_result = {
+                            "ok": True,
+                            "run": {
+                                field: run[field]
+                                for field in allowed_fields
+                                if field in run
+                            },
+                        }
 
         # Keep the tool response compact and avoid exposing exception details.
         tool_result_json = json.dumps(tool_result)

@@ -16,6 +16,7 @@
 - `singleCall.py` demonstrates an Ollama tool call using a small, fixed sample-temperature dictionary; it does not fetch live weather.
 - `local_model_check.py` sends a simple readiness prompt to the locally installed `llama3.2:latest` model.
 - `tests/` contains pytest checks for QA lookup and summary behavior, mocked HTTP responses, and tool argument/error handling.
+- `requirements.txt` lists the Python packages needed for Ollama examples and pytest.
 - `.env.example` shows the Ollama model and thinking settings to copy into your private `.env` file. `.gitignore` keeps `.env`, virtual environments, caches, and other generated files out of version control.
 - `package.json` and `package-lock.json` are Node.js dependency files; the Python application does not use them.
 - `pytest-report.html` is a generated pytest report, not application source code.
@@ -40,7 +41,13 @@ Activate it:
 .venv\Scripts\Activate.ps1
 ```
 
-When it is active, PowerShell shows `(.venv)` at the start of the prompt. The application code uses Python's standard library, so it needs no runtime packages.
+When it is active, PowerShell shows `(.venv)` at the start of the prompt. Install the project's Python packages:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+The core `main.py` example uses Python's standard library. The requirements file also installs packages for the Ollama scripts and pytest.
 
 ## Run the program
 
@@ -113,10 +120,9 @@ The malformed-arguments and tool-exception cases are covered by `tests/test_tool
 
 `singleCall.py` reads `OLLAMA_MODEL` and `OLLAMA_THINK` from the project's `.env` file. Set the model to an installed Ollama tag such as `qwen3:latest`, and set thinking to `true` or `false`. The script validates both values and uses them in each chat call. The local `.env` file is ignored by Git; `.env.example` is a safe template.
 
-Install the `.env` loader in the project's virtual environment and run the example:
+Download a model tag if it is not already installed, then run the example:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install python-dotenv
 ollama pull qwen3:latest
 .\.venv\Scripts\python.exe singleCall.py
 ```

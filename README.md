@@ -1,13 +1,24 @@
 # Test Run Summary Assistant
 
-A small Python practice project that summarizes synthetic QA test runs and fetches a sample post from JSONPlaceholder.
+- Python learning project for summarizing locally stored synthetic QA test runs.
+- Connects an Ollama model to the read-only `get_test_run` tool for run-specific questions.
+- Validates run IDs and tool arguments, and handles unsupported prompts and lookup failures.
+- Includes pytest coverage and an HTTP client example using JSONPlaceholder.
 
 ## Project files
 
-- `main.py` demonstrates known, unknown, and blank run IDs; it summarizes a found run, displays lookup errors, and demonstrates the API call.
-- `qa_data.py` stores three invented QA runs: an all-passing run, a run with failures, and a run with failures and blocked tests.
-- `qa_tools.py` validates and normalizes a run ID, returns an isolated copy of the matching synthetic run, and raises `LookupError` when no run matches. It only reads data; it cannot change status, delete results, or trigger reruns.
-- `api_client.py` fetches a post and returns its ID, title, and body.
+- `AIPythonFunctionCall.py` is the Ollama-powered QA assistant example. It checks the request and local run IDs, provides the `get_test_run` tool, handles tool results, and asks the model for a final answer.
+- `tool_safety.py` extracts run IDs, limits prompts to supported QA wording, validates model-generated tool arguments, checks requested IDs, and returns controlled lookup results and errors.
+- `qa_data.py` stores four invented QA runs: `QA-103`, `QA-104`, `QA-105`, and `QA-123`.
+- `qa_tools.py` validates and normalizes a run ID, returns an isolated copy of a matching record, and raises `LookupError` when no record matches. It only reads local data.
+- `main.py` demonstrates known, unknown, and blank IDs, summarizes a run, and calls the sample HTTP client.
+- `api_client.py` fetches a JSONPlaceholder post with a timeout, checks the response, and returns only its ID, title, and body.
+- `singleCall.py` demonstrates an Ollama tool call using a small, fixed sample-temperature dictionary; it does not fetch live weather.
+- `local_model_check.py` sends a simple readiness prompt to the locally installed `llama3.2:latest` model.
+- `tests/` contains pytest checks for QA lookup and summary behavior, mocked HTTP responses, and tool argument/error handling.
+- `.env.example` shows the Ollama model and thinking settings to copy into your private `.env` file. `.gitignore` keeps `.env`, virtual environments, caches, and other generated files out of version control.
+- `package.json` and `package-lock.json` are Node.js dependency files; the Python application does not use them.
+- `pytest-report.html` is a generated pytest report, not application source code.
 
 ## Requirements
 
@@ -79,6 +90,24 @@ python -m pytest
 ## Missing QA run behavior
 
 `get_test_run(run_id)` raises `LookupError` with a message such as `No QA test run found for ID QA-999.` when the ID is valid but no synthetic run matches it. Callers such as `main.py` catch the error and display its message. Invalid input uses `TypeError` for a non-string and `ValueError` for an empty or whitespace-only string.
+
+## Agent tool evaluation cases
+
+Use these cases to check the QA run assistant's expected behavior. The app checks that every run ID exists in `qa_data.py` before sending a request to Ollama. Its prompt-scope gate uses a small allowlist of QA-related words, so unsupported wording is rejected; add terms deliberately when expanding the assistant's supported QA questions. Malformed arguments and lookup exceptions are simulated in unit tests because they are tool failure cases, not ordinary user prompts.
+
+| Case | Prompt or test input | Expected behavior |
+|---|---|---|
+| Known run | `Summarize QA test run QA-104.` | The app finds QA-104, sends the request with the `get_test_run` tool, and summarizes only the returned run data. |
+| Multiple known runs | `Can you write a summary of QA-104 and QA-105?` | The app confirms both IDs exist; each tool call is checked against the requested IDs and the final answer uses both records. |
+| Unknown run | `Summarize QA test run QA-999.` | The app reports that QA-999 is absent from `qa_data.py` and stops before contacting Ollama. |
+| One known and one unknown run | `Summarize QA-104 and QA-999.` | The app reports QA-999 as missing, removes it from the prompt sent to Ollama, and summarizes QA-104. |
+| Blank/missing ID | `Summarize the QA test run.` | The app asks for a run ID and stops before contacting Ollama. |
+| Unrelated question | `What is the capital of France?` | The app explains that it only handles QA test-run questions and stops before contacting Ollama. |
+| Mixed QA and unrelated question | `Summarize QA-104 and explain how to reverse a string in Python.` | The prompt-scope gate rejects the unrelated terms and stops before contacting Ollama. |
+| Malformed tool arguments | Simulate malformed JSON such as `{"run_id": "QA-104"` (missing the closing brace). | The tool handler returns `invalid_arguments`; the lookup function is not called. |
+| Tool exception | Simulate `get_test_run` raising `RuntimeError` for QA-104. | The handler returns the bounded message `The QA test run could not be retrieved.` and logs only the function name, run ID, and exception type. It does not expose the exception text or traceback. |
+
+The malformed-arguments and tool-exception cases are covered by `tests/test_tool_safety.py`.
 
 ## Ollama settings for singleCall.py
 
